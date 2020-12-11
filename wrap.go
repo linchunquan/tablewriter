@@ -10,7 +10,7 @@ package tablewriter
 import (
 	"math"
 	"strings"
-
+	"unicode"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -24,7 +24,33 @@ const defaultPenalty = 1e5
 // Wrap wraps s into a paragraph of lines of length lim, with minimal
 // raggedness.
 func WrapString(s string, lim int) ([]string, int) {
-	words := strings.Split(strings.Replace(s, nl, sp, -1), sp)
+	var strs []string
+	for _, r := range s {
+		n := len(strs)
+		if unicode.Is(unicode.Han, r) {
+			if n == 0 || strs[n-1] != "" {
+				strs = append(strs, string(r))
+			} else {
+				strs[n-1] = string(r)
+			}
+			strs = append(strs, "")
+		} else {
+			if n == 0  {
+				strs = append(strs, string(r))
+			} else {
+				strs[n-1] = strs[n-1] + string(r)
+			}
+		}
+	}
+	if len(strs) > 0 && strs[len(strs)-1] == "" {
+		strs = strs[:len(strs)-1]
+	}
+
+	var words []string
+	for _, str := range strs {
+		words = append(words, (strings.Split(strings.Replace(str, nl, sp, -1), sp))...)
+	}
+	
 	var lines []string
 	max := 0
 	for _, v := range words {
@@ -34,7 +60,19 @@ func WrapString(s string, lim int) ([]string, int) {
 		}
 	}
 	for _, line := range WrapWords(words, 1, lim, defaultPenalty) {
-		lines = append(lines, strings.Join(line, sp))
+
+		for i, word := range line {
+			wordRune := []rune(word)
+			n := len(wordRune)
+			if n > 0 && !unicode.Is(unicode.Han, wordRune[n-1]) {
+				line[i] = word + sp
+			}
+			if n == 0 {
+				line[i] = sp
+			}
+		}
+
+		lines = append(lines, strings.Join(line, ""))
 	}
 	return lines, lim
 }
